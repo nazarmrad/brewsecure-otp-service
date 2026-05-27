@@ -1,2 +1,24 @@
 node_modules/
+
+# env and secrets
 .env
+.env.*
+ecosystem.config.js
+pm2.config.js
+
+# certs and keys
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+
+# logs
+*.log
+logs/
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
