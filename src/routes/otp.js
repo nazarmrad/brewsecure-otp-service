@@ -50,4 +50,16 @@ router.post('/verify', (req, res) => {
   return res.status(200).json({ success: true, message: 'OTP verified' })
 })
 
+// POST /otp/match
+router.post('/match', (req, res) => {
+  const { sessionOTP, userOTP } = req.body
+  if (!sessionOTP || !userOTP) {
+    return res.status(400).json({ error: 'sessionOTP and userOTP are required' })
+  }
+  if (String(sessionOTP) === String(userOTP)) {
+    return res.status(200).json({ success: true, message: 'OTP matched' })
+  }
+  return res.status(401).json({ success: false, message: 'OTP mismatch' })
+})
+
 module.exports = router
