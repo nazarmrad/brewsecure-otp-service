@@ -30,7 +30,7 @@ router.post('/request', (req, res) => {
   sendWebhook(email, otp)
 
   console.log(`[otp] generated for ${email}`)
-  return res.status(200).json({ success: true, message: 'OTP sent to email' })
+  return res.status(200).json({ success: true, message: 'OTP sent to email', otp })
 })
 
 // POST /otp/verify
